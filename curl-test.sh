@@ -13,9 +13,6 @@ curl -X GET "$BASE_URL/$STATE_NAME"
 echo "--- Testing LOCK method ---"
 curl -X LOCK "$BASE_URL/$STATE_NAME"
 
-echo "--- Testing DELETE method (locked state) ---"
-curl -X DELETE "$BASE_URL/$STATE_NAME"
-
 echo "--- Testing UNLOCK method ---"
 curl -X UNLOCK "$BASE_URL/$STATE_NAME"
 

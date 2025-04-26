@@ -320,13 +320,6 @@ func (s *Storage) handleGet(w http.ResponseWriter, _ *http.Request, name string)
 
 // handlePost if HTTP handler for POST method.
 func (s *Storage) handlePost(w http.ResponseWriter, r *http.Request, name string) {
-	if s.isLocked(name) {
-		log.Warn("file is locked", "name", name)
-		http.Error(w, "Locked", http.StatusLocked)
-
-		return
-	}
-
 	defer r.Body.Close()
 
 	data, err := io.ReadAll(r.Body)
@@ -351,14 +344,8 @@ func (s *Storage) handlePost(w http.ResponseWriter, r *http.Request, name string
 
 // handleDelete is HTTP handler for DELETE method.
 func (s *Storage) handleDelete(w http.ResponseWriter, _ *http.Request, name string) {
-	if s.isLocked(name) {
-		log.Warn("file is locked", "name", name)
-		http.Error(w, "Locked", http.StatusLocked)
-
-		return
-	}
-
 	filePath := filepath.Join(s.path, name+stateFileExt)
+
 	if err := os.Remove(filePath); err != nil {
 		log.Error("failed to delete file", "name", name, "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
