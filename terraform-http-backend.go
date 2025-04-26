@@ -298,6 +298,12 @@ func (s *Storage) handleGet(w http.ResponseWriter, _ *http.Request, name string)
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+
+			return
+		}
+
 		log.Error("failed to read file", "name", name, "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 
