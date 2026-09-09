@@ -1,0 +1,9 @@
+Package: terraform-backend
+Version: VERSION
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Kirill Shtrykov <kirill@shtrykov.com>
+Description: Terraform HTTP Backend
+ A simple HTTP backend for Terraform,
+ using the file system for tfstate storage, written in Go.

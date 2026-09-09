@@ -1,0 +1,53 @@
+---
+version: "3"
+
+env:
+  VERSION:
+    sh: git describe --tags --dirty --always | sed 's/^v//'
+  GOOS: linux
+  GOARCH: amd64
+  CGO_ENABLED: 0
+tasks:
+  build:
+    desc: Build binary
+    cmds:
+      - >
+        go build
+        -ldflags "-X main.version=$VERSION"
+        -o dist/terraform-backend
+        ./cmd/terraform-backend
+  deb:
+    deps:
+      - build
+    cmds:
+      - rm -rf dist/deb
+      - mkdir -p dist/deb/usr/bin/
+      - mkdir -p dist/deb/etc/terraform-backend/
+      - mkdir -p dist/deb/lib/systemd/system/
+      - cp dist/terraform-backend dist/deb/usr/bin/
+      - cp -r packaging/deb/DEBIAN dist/deb/
+      - chmod 0755 dist/deb/DEBIAN/postinst dist/deb/DEBIAN/prerm dist/deb/DEBIAN/postrm
+      - cp packaging/etc/config.hcl dist/deb/etc/terraform-backend/
+      - cp packaging/systemd/terraform-backend.service dist/deb/lib/systemd/system/
+      - sed -i "s/VERSION/${VERSION}/" dist/deb/DEBIAN/control
+      - dpkg-deb --build --root-owner-group dist/deb dist/terraform-backend_${VERSION}_${GOARCH}.deb
+  rpm:
+    deps:
+      - build
+    cmds:
+      - rm -rf dist/rpm
+      - mkdir -p dist/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+      - cp packaging/rpm/terraform-backend.spec dist/rpm/SPECS/
+      - cp dist/terraform-backend dist/rpm/SOURCES/
+      - cp packaging/etc/config.hcl dist/rpm/SOURCES/
+      - cp packaging/systemd/terraform-backend.service dist/rpm/SOURCES/
+      - sed -i "s/VERSION/${VERSION}/" dist/rpm/SPECS/terraform-backend.spec
+      - rpmbuild -bb --define "_topdir $(pwd)/dist/rpm" dist/rpm/SPECS/terraform-backend.spec
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run --fix
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
