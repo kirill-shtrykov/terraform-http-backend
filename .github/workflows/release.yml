@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build packages
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+      GOOS: linux
+      GOARCH: amd64
+      CGO_ENABLED: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Strip leading v from tag
+        id: ver
+        run: echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install RPM build tools
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build binary
+        run: |
+          go build \
+            -ldflags "-X main.version=${{ steps.ver.outputs.version }}" \
+            -o dist/terraform-backend \
+            ./cmd/terraform-backend
+
+      - name: Prepare DEB tree
+        run: |
+          rm -rf dist/deb
+          mkdir -p dist/deb/usr/bin
+          mkdir -p dist/deb/etc/terraform-backend
+          mkdir -p dist/deb/lib/systemd/system
+          cp dist/terraform-backend                          dist/deb/usr/bin/
+          cp -r packaging/deb/DEBIAN                        dist/deb/
+          cp packaging/etc/config.hcl                       dist/deb/etc/terraform-backend/
+          cp packaging/systemd/terraform-backend.service    dist/deb/lib/systemd/system/
+          sed -i "s/VERSION/${{ steps.ver.outputs.version }}/" dist/deb/DEBIAN/control
+
+      - name: Build DEB
+        run: |
+          dpkg-deb --build --root-owner-group \
+            dist/deb \
+            dist/terraform-backend_${{ steps.ver.outputs.version }}_${GOARCH}.deb
+
+      - name: Prepare RPM tree
+        run: |
+          rm -rf dist/rpm
+          mkdir -p dist/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp packaging/rpm/terraform-backend.spec           dist/rpm/SPECS/
+          cp dist/terraform-backend                         dist/rpm/SOURCES/
+          cp packaging/etc/config.hcl                       dist/rpm/SOURCES/
+          cp packaging/systemd/terraform-backend.service    dist/rpm/SOURCES/
+          sed -i "s/VERSION/${{ steps.ver.outputs.version }}/" dist/rpm/SPECS/terraform-backend.spec
+
+      - name: Build RPM
+        run: |
+          rpmbuild -bb \
+            --define "_topdir $(pwd)/dist/rpm" \
+            dist/rpm/SPECS/terraform-backend.spec
+
+      - name: Locate RPM
+        id: rpm
+        run: |
+          RPM=$(find dist/rpm/RPMS -name '*.rpm' | head -1)
+          echo "path=${RPM}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DEB to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/terraform-backend_${{ steps.ver.outputs.version }}_${{ env.GOARCH }}.deb
+
+      - name: Upload RPM to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ steps.rpm.outputs.path }}

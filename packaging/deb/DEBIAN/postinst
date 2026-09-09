@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure|abort-upgrade|abort-remove|abort-deconfigure)
+        # Create system user and group if they do not exist.
+        if ! getent group terraform >/dev/null 2>&1; then
+            addgroup --system terraform
+        fi
+        if ! getent passwd terraform >/dev/null 2>&1; then
+            adduser --system --no-create-home --ingroup terraform terraform
+        fi
+
+        # Create state directory with correct ownership.
+        mkdir -p /var/lib/terraform-backend/state
+        chown terraform:terraform /var/lib/terraform-backend/state
+        chmod 0750 /var/lib/terraform-backend/state
+
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        if systemctl is-enabled terraform-backend.service >/dev/null 2>&1; then
+            systemctl restart terraform-backend.service >/dev/null 2>&1 || true
+        fi
+        ;;
+esac

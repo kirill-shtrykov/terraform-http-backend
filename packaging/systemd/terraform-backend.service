@@ -1,0 +1,14 @@
+[Unit]
+Description=Terraform HTTP Backend
+Documentation=https://github.com/kirill-shtrykov/terraform-http-backend
+After=network-online.target
+
+[Service]
+User=terraform
+Group=terraform
+ExecStart=/usr/bin/terraform-backend
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
